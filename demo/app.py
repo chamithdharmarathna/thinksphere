@@ -12,7 +12,10 @@ st.set_page_config(
 )
 
 st.title("AI-Based Employee Performance Appraisal System")
-st.write("Demo for Performance Prediction, Behavior Pattern Analysis, and Bias Detection")
+st.write(
+    "Demo for Performance Prediction, Behavior Pattern Analysis, "
+    "Bias Detection, and Decision Arbitration"
+)
 
 
 # ==============================
@@ -22,20 +25,21 @@ st.write("Demo for Performance Prediction, Behavior Pattern Analysis, and Bias D
 performance_df = pd.read_csv("performance_prediction_output.csv")
 behavior_df = pd.read_csv("behavior_pattern_final_dataset.csv")
 bias_df = pd.read_csv("bias_detection_output.csv")
+decision_df = pd.read_csv("decision_arbitration_dataset.csv")
 
-performance_df.columns = [c.strip().replace(" ", "_") for c in performance_df.columns]
-behavior_df.columns = [c.strip().replace(" ", "_") for c in behavior_df.columns]
-bias_df.columns = [c.strip().replace(" ", "_") for c in bias_df.columns]
+# Clean column names
+for df in [performance_df, behavior_df, bias_df, decision_df]:
+    df.columns = [c.strip().replace(" ", "_") for c in df.columns]
 
 
 # ==============================
-# Employee selection
+# Sidebar employee selection
 # ==============================
 
-st.sidebar.header("Select Employee")
+st.sidebar.header("Employee Selection")
 
 employee_id = st.sidebar.selectbox(
-    "Employee ID",
+    "Select Employee ID",
     performance_df["employee_id"].unique()
 )
 
@@ -51,6 +55,10 @@ bias_employee = bias_df[
     bias_df["employee_id"] == employee_id
     ].iloc[0]
 
+decision_employee = decision_df[
+    decision_df["employee_id"] == employee_id
+    ].iloc[0]
+
 
 # ==============================
 # Employee profile
@@ -60,7 +68,7 @@ st.header("Employee Profile")
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Employee ID", performance_employee["employee_id"])
+col1.metric("Employee ID", employee_id)
 col2.metric("Job Role", performance_employee["job_role_id"])
 col3.metric("Department", performance_employee["department"])
 col4.metric("Experience", f"{performance_employee['years_of_experience']} years")
@@ -68,7 +76,12 @@ col4.metric("Experience", f"{performance_employee['years_of_experience']} years"
 col5, col6, col7, col8 = st.columns(4)
 
 col5.metric("Gender", performance_employee["gender"])
-col6.metric("Age Group", bias_employee["age_group"])
+
+if "age_group" in bias_df.columns:
+    col6.metric("Age Group", bias_employee["age_group"])
+else:
+    col6.metric("Age Group", "N/A")
+
 col7.metric("Institution", performance_employee["institution_id"])
 col8.metric("Project", performance_employee["project_id"])
 
@@ -193,12 +206,12 @@ st.pyplot(fig3)
 
 
 # ==============================
-# Module 3: Bias Detection and Fairness
+# Module 3: Bias Detection
 # ==============================
 
 st.header("Module 3: Bias Detection and Fairness")
 
-bias_flag = bias_employee["bias_flag"]
+bias_flag = int(bias_employee["bias_flag"])
 bias_type = bias_employee["bias_type"]
 fairness_score = bias_employee["fairness_score"]
 
@@ -211,7 +224,11 @@ col1, col2, col3 = st.columns(3)
 
 col1.metric("Bias Status", bias_status)
 col2.metric("Fairness Score", round(fairness_score, 2))
-col3.metric("Predicted Bias Flag", int(bias_employee["predicted_bias_flag"]))
+
+if "predicted_bias_flag" in bias_df.columns:
+    col3.metric("Predicted Bias Flag", int(bias_employee["predicted_bias_flag"]))
+else:
+    col3.metric("Predicted Bias Flag", "N/A")
 
 st.subheader("Bias Type / Explanation")
 st.write(bias_type)
@@ -245,7 +262,7 @@ st.dataframe(
     bias_employee[available_bias_cols].to_frame(name="Value")
 )
 
-st.subheader("Manager, Peer, and Subordinate Ratings for Bias Review")
+st.subheader("Rating Comparison for Bias Review")
 
 bias_rating_df = pd.DataFrame({
     "Evaluation Source": ["Manager", "Peer", "Subordinate"],
@@ -263,20 +280,86 @@ ax4.bar(
 )
 ax4.set_ylim(0, 5)
 ax4.set_ylabel("Rating")
-ax4.set_title("Rating Comparison for Bias Detection")
+ax4.set_title("Manager vs Peer vs Subordinate Ratings")
 st.pyplot(fig4)
-
-st.subheader("Fairness Review Recommendation")
 
 if bias_flag == 1:
     st.warning(
         "This appraisal record contains possible bias indicators. "
-        "The system recommends human review before final appraisal decisions are made."
+        "Human review is recommended before final appraisal decisions."
     )
 else:
     st.success(
         "No major bias indicator was detected. The appraisal record appears acceptable for normal review."
     )
+
+
+# ==============================
+# Module 4: Decision Arbitration
+# ==============================
+
+st.header("Module 4: Decision Arbitration and Opinion Dynamics")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Conflict Flag", int(decision_employee["conflict_flag"]))
+col2.metric("Conflict Score", round(decision_employee["conflict_score"], 2))
+col3.metric("Power Distance Risk", decision_employee["power_distance_risk"])
+
+col4, col5, col6 = st.columns(3)
+
+col4.metric("Final Recommended Score", round(decision_employee["final_recommended_score"], 2))
+col5.metric("Final Recommended Class", decision_employee["final_recommended_class"])
+col6.metric("Arbitration Decision", decision_employee["arbitration_decision"])
+
+st.subheader("Conflict Type")
+st.write(decision_employee["conflict_type"])
+
+st.subheader("Opinion Dynamics Pattern")
+st.write(decision_employee["opinion_dynamics_pattern"])
+
+st.subheader("Institution Culture Pattern")
+st.write(decision_employee["culture_pattern"])
+
+st.subheader("Opinion Dynamics and Power Distance Signals")
+
+opinion_signal_cols = [
+    "manager_dominance_score",
+    "peer_convergence_score",
+    "subordinate_suppression_score",
+    "social_protection_score",
+    "power_distance_risk_score"
+]
+
+available_opinion_cols = [
+    col for col in opinion_signal_cols
+    if col in decision_df.columns
+]
+
+st.dataframe(
+    decision_employee[available_opinion_cols].to_frame(name="Value")
+)
+
+fig5, ax5 = plt.subplots(figsize=(8, 4))
+ax5.bar(
+    available_opinion_cols,
+    [decision_employee[col] for col in available_opinion_cols]
+)
+ax5.set_ylim(0, 100)
+ax5.set_ylabel("Score")
+ax5.set_title("Opinion Dynamics / Power Distance Indicators")
+plt.xticks(rotation=30, ha="right")
+st.pyplot(fig5)
+
+st.subheader("Final Decision Explanation")
+st.write(decision_employee["decision_explanation"])
+
+if decision_employee["arbitration_decision"] == "Request HR Review":
+    st.error("Final recommendation: HR review required before final appraisal approval.")
+elif decision_employee["arbitration_decision"] in ["Adjust Manager Weight", "Adjust Peer Weight"]:
+    st.warning("Final recommendation: Adjust evaluator weighting before final appraisal approval.")
+else:
+    st.success("Final recommendation: Appraisal can proceed with the suggested decision.")
 
 
 # ==============================
@@ -293,7 +376,12 @@ else:
     st.warning("Combined feedback text column not found.")
 
 
+# ==============================
+# Footer
+# ==============================
+
 st.markdown("---")
 st.caption(
-    "This demo flags possible bias risk for human review. It does not prove intentional bias."
-).vem
+    "This demo is a conceptual AI-based appraisal decision-support system. "
+    "It flags possible risks and recommendations for human review; it does not make final HR decisions automatically."
+)
